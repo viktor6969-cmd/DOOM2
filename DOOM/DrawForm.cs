@@ -7,7 +7,7 @@ namespace DOOM
     public partial class DrawForm : Form
     {
 
-        private Form _owner;
+        private Screen _owner;
         private Color _currentColor = Color.Black;
 
         private readonly Color[] _palette = {
@@ -23,7 +23,7 @@ namespace DOOM
         };
 
         // -------- Constructor -----------// 
-        public DrawForm(Form owner)
+        public DrawForm(Screen owner)
         {
             InitializeComponent();
             _owner = owner;

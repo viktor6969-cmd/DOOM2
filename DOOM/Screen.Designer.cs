@@ -1,6 +1,6 @@
 ﻿namespace DOOM
 {
-    partial class Form1
+    partial class Screen
     {
         /// <summary>
         /// Required designer variable.
@@ -30,18 +30,14 @@
         {
             this.SuspendLayout();
             // 
-            // Form1
+            // Screen
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
-            this.ClientSize = new System.Drawing.Size(829, 543);
-            this.Margin = new System.Windows.Forms.Padding(2);
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.Name = "Form1";
-            this.ShowIcon = false;
-            this.Text = "Form1";
+            this.ClientSize = new System.Drawing.Size(1244, 835);
+            this.Name = "Screen";
+            this.Text = "Screen";
+            this.Load += new System.EventHandler(this.Screen_Load);
             this.ResumeLayout(false);
 
         }
@@ -49,4 +45,3 @@
         #endregion
     }
 }
-
