@@ -37,6 +37,10 @@ namespace DOOM
         }
         private MenuItem[] _menuItems;
 
+        // Options state
+        private bool _inOptions = false;
+        private int _optionSelected = 0;
+
         // ----------------- Constructor ------------------- //
         public MenuLogic(Screen form)
         {
@@ -58,7 +62,7 @@ namespace DOOM
                     _form.GoToGame(); // hand control to GameLogic
                 }},
                 new MenuItem { Text = "Drawing Board", OnSelect = () => { RunDrawingBoard(_form);  } },
-                new MenuItem { Text = "Options",   OnSelect = () => { /* TODO */ }},
+                new MenuItem { Text = "Options",   OnSelect = () => { _inOptions = true; _form.Invalidate(); } },
                 new MenuItem { Text = "Quit Game", OnSelect = () => Application.Exit() },
             };
 
@@ -70,13 +74,11 @@ namespace DOOM
         // ── Draw — called by Form1.OnPaint ────────────────
         public void Draw(Graphics g, Size clientSize)
         {
-            if (_firstEnter)
-            {
-                DrawIntroScreen(g, clientSize);
-                return;
-            }
+            if (_firstEnter) { DrawIntroScreen(g, clientSize); return;}
 
-            DrawMainMenu(g, clientSize);
+            if (_inOptions) { DrawOptions(g, clientSize); return; }
+
+            else DrawMainMenu(g, clientSize);
         }
 
         // ── Intro Screen ──────────────────────────────────
@@ -126,6 +128,40 @@ namespace DOOM
             g.DrawImage(_skull, textX + selectedSize.Width + 5, textY, 60, 60);
         }
 
+        // ── Options Screen ──────────────────────────────────
+        // ── Options Screen ────────────────────────────────
+        private void DrawOptions(Graphics g, Size clientSize)
+        {
+            g.DrawImage(_background, 0, 0, clientSize.Width, clientSize.Height); // Draw the BG
+
+            // Big title
+            string title = "- Options -";
+            SizeF titleSize = g.MeasureString(title, _menuFont);
+            float titleX = (clientSize.Width - titleSize.Width) / 2;
+            float titleY = (clientSize.Height / 2) - 160;
+
+            g.DrawString(title, _menuFont, new SolidBrush(Color.FromArgb(20, 0, 0)), titleX + 6, titleY + 6);
+            g.DrawString(title, _menuFont, new SolidBrush(Color.FromArgb(90, 0, 0)), titleX + 3, titleY + 3);
+            g.DrawString(title, _menuFont, Brushes.Red, titleX, titleY);
+
+            // Option items
+            string[] items = { "Sound :  < ON >", "Back" };
+
+            int startY = clientSize.Height / 2 - 40;
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                float y = startY + i * 60;
+                SizeF size = g.MeasureString(items[i], _menuFont);
+                float x = (clientSize.Width - size.Width) / 2;
+
+                g.DrawString(items[i], _menuFont, new SolidBrush(Color.FromArgb(20, 0, 0)), x + 6, y + 6);
+                g.DrawString(items[i], _menuFont, new SolidBrush(Color.FromArgb(90, 0, 0)), x + 3, y + 3);
+
+                Color col = (i == _optionSelected) ? Color.Red : Color.FromArgb(155, 15, 15);
+                g.DrawString(items[i], _menuFont, new SolidBrush(col), x, y);
+            }
+        }
 
         // -- Run the DrawingBoard form -------
         private void RunDrawingBoard(Screen from)
@@ -148,6 +184,26 @@ namespace DOOM
                 _blinkTimer.Dispose();
                 _form.Invalidate();
                 return;
+            }
+
+            // ── Options screen input ───────────────────────
+            if (_inOptions)
+            {
+                if (e.KeyCode == Keys.Up || e.KeyCode == Keys.W)
+                    _optionSelected = (_optionSelected - 1 + 2) % 2;
+
+                if (e.KeyCode == Keys.Down || e.KeyCode == Keys.S)
+                    _optionSelected = (_optionSelected + 1) % 2;
+
+                if (e.KeyCode == Keys.Escape)
+                    _inOptions = false;
+
+                // Enter/Space on "Back" closes options
+                if ((e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space) && _optionSelected == 1)
+                    _inOptions = false;
+
+                _form.Invalidate();
+                return; // ← stop here, don't fall into menu logic
             }
 
             if (e.KeyCode == Keys.Up || e.KeyCode == Keys.W)
@@ -183,6 +239,7 @@ namespace DOOM
         public void HandleMouseClick(MouseEventArgs e)
         {
             if (_firstEnter) return; // Don't process clicks on intro screen
+
 
             for (int i = 0; i < _menuBounds.Length; i++)
             {

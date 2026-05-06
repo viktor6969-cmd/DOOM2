@@ -98,6 +98,11 @@ namespace DOOM
                 PlayMusic(_music_menu);
         }
 
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            if (_inGame)
+                _game.HandleKeyUp(e);
+        }
         private void Screen_Load(object sender, EventArgs e)
         {
 
