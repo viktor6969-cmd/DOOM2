@@ -76,11 +76,6 @@ namespace DOOM
             }
         }
 
-        private void toolStrip1_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
-        {
-
-        }
-
         private void canvas_Paint(object sender, PaintEventArgs e)
         {
 

@@ -22,7 +22,6 @@ namespace DOOM
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.DoubleBuffered = true;
 
-            // Create both logic classes — pass this form so they can call back
             _menu = new MenuLogic(this);
             _game = new GameLogic(this);
         }
@@ -75,18 +74,12 @@ namespace DOOM
         // ── Mouse move — who's in charge handles ─────────
         protected override void OnMouseMove(MouseEventArgs e)
         {
-            if (_inGame)
-                _game.HandleMouseMove(e);
-            else
                 _menu.HandleMouseMove(e);
         }
 
         // ── Mouse click — who's in charge handles ────────
         protected override void OnMouseClick(MouseEventArgs e)
         {
-            if (_inGame)
-                _game.HandleMouseClick(e);
-            else
                 _menu.HandleMouseClick(e);
         }
 
