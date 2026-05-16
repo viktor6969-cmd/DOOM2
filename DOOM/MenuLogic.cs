@@ -52,7 +52,7 @@ namespace DOOM
             _blinkTimer.Tick += (s, e) =>
             {
                 _blinkVisible = !_blinkVisible;
-                _form.Invalidate();
+                _form.Invalidate(); 
             };
             _blinkTimer.Start();
 
