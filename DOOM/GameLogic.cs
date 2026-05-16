@@ -58,7 +58,6 @@ namespace DOOM
 
     public class Pistol : Weapon
     {
-        // Finally answers Entity's abstract SpritePath
         public override string TexturePath => "Original_assets\\Textures\\Weapons\\pisga0.png";
 
         // Pistol starts with 10 damage and 50 bullets
@@ -160,10 +159,37 @@ namespace DOOM
     }
     public class Wall : Build
     {
-        public Wall(string texturePath)
-            : base("Wall", 100, 128, texturePath) { }
+        private Bitmap _texture;
+        public Wall(string texturePath, string name)
+            : base(name, 100, 128, texturePath) 
+        {
+            _texture = new Bitmap(texturePath);
+        }
+
+        public int TextureWidth => _texture.Width;
+        public int TextureHeight => _texture.Height;
+
+        public int GetTexturePixel(int x, int y)
+        {
+            return _texture.GetPixel(x, y).ToArgb();
+        }
     }
 
+    public struct RayHit
+    {
+        public double Distance;
+        public double HitX;
+        public double HitY;
+        public bool HitVertical;
+
+        public RayHit(double distance, double hitX, double hitY, bool hitVertical)
+        {
+            Distance = distance;
+            HitX = hitX;
+            HitY = hitY;
+            HitVertical = hitVertical;
+        }
+    }
 
     public class Render
     {
@@ -171,9 +197,11 @@ namespace DOOM
         public const int ScreenH = 400;
 
 
-        private Bitmap _frame;
         private int[] _pixels;
-
+        private Bitmap _wall;
+        private Bitmap _frame;
+        private Bitmap _floor;
+        private Bitmap _ceiling;
 
         private const double FOV = Math.PI / 3.0; // 60 deg, view
 
@@ -181,55 +209,71 @@ namespace DOOM
         {
             _frame = new Bitmap(ScreenW, ScreenH, PixelFormat.Format32bppArgb);
             _pixels = new int[ScreenW * ScreenH];
+
+            // Load textures
+            _wall = new Bitmap("Original_assets\\Textures\\Walls\\sw19_1.png");
+            _floor = new Bitmap("Original_assets\\Textures\\Walls\\floor3_3.png");
+            _ceiling = new Bitmap("Original_assets\\Textures\\Walls\\ceil3.png");
         }
 
         public Bitmap DrawFrame(Player player, int[,] map)
         { 
-            Array.Clear(_pixels, 0, _pixels.Length); // Clean the array
-            int ceilColor = Color.SlateGray.ToArgb();
-            int floorColor = Color.DarkGray.ToArgb();
-
-            // 1. draw ceiling/floor basic colors
-            for (int y = 0; y < ScreenH; y++)
+            Array.Clear(_pixels, 0, _pixels.Length);
+            
+            for (int x = 0; x < ScreenW; x++)
             {
-                for (int x = 0; x < ScreenW; x++)
-                {
-                    _pixels[y * ScreenW + x] = y < ScreenH / 2 ? ceilColor : floorColor;
-                }
+                // Calculate ray angle for this column
+                double rayAngle = player.Angle - FOV / 2 + (x / (double)ScreenW) * FOV;
+
+                // Cast ray and get distance to wall
+                RayHit hit = CastRay(player.X, player.Y, rayAngle, map);
+
+                hit.Distance = hit.Distance * Math.Cos(rayAngle - player.Angle);
+
+                // Simple perspective: wall height inversely proportional to distance
+                int wallHeight = (int)(ScreenH / hit.Distance);
+
+                // Calculate wall start/end on screen
+                int wallStart = (ScreenH / 2) - (wallHeight / 2);
+                int wallEnd = (ScreenH / 2) + (wallHeight / 2);
+
+                // ceiling + textured wall + floor
+                DrawColumn(x, wallStart, wallEnd, hit);
+
             }
-
-            // 2. raycast walls here
-
-           CastRay(player.X, player.Y,player.Angle,map);
-
-            // DrawVerticalTextureColumn(...)
 
             CopyPixelsToBitmap();
             return _frame;
         }
 
-        private double CastRay(float player_x, float player_y, double angle, int[,] map)
+        private void DrawColumn(int screenX, int wallStart, int wallEnd, RayHit hit)
         {
-            double x = player_x;
+
+        }
+
+        private RayHit CastRay(float player_x, float player_y, double angle, int[,] map)
+        {
+            RayHit hit = new RayHit(20, 0, 0, false); // default max distance
+            double x = player_x; 
             double y = player_y;
-            double deg_x = Math.Cos(angle) * 0.1;  // small step along ray
-            double deg_y = Math.Sin(angle) * 0.1;
+            double step_x = Math.Cos(angle) * 0.1;  // small step along ray
+            double step_y = Math.Sin(angle) * 0.1;
 
             for (int i = 0; i < 200; i++)  // 200 steps * 0.1 = max depth 20
             {
-                x += deg_x;
-                y += deg_y;
+                x += step_x;
+                y += step_y;
 
                 if (map[(int)y,(int)x] == 1)
                 {
                     // return actual distance from player to hit point
-                    double distX = x - player_x;
-                    double distY = y - player_y;
-                    return Math.Sqrt(distX * distX + distY * distY);
+                    hit.HitX = x;
+                    hit.HitY = y;
+                    hit.Distance = Math.Sqrt((x-player_x) * (x-player_x) + (y-player_y) * (y-player_y));
+                    return hit;
                 }
             }
-
-            return 20; // max depth, nothing hit
+            return hit; // nothing hit
         }
 
         private void CopyPixelsToBitmap()
