@@ -135,6 +135,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Original_assets\Textures\Face\" />
     <Folder Include="Saves\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

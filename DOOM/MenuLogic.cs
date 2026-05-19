@@ -58,9 +58,7 @@ namespace DOOM
 
             _menuItems = new MenuItem[]
             {
-                new MenuItem { Text = "Slay Demons",   OnSelect = () => {
-                    _form.GoToGame(); // hand control to GameLogic
-                }},
+                new MenuItem { Text = "Slay Demons",   OnSelect = () => {_form.GoToGame();}},
                 new MenuItem { Text = "Drawing Board", OnSelect = () => { RunDrawingBoard(_form);  } },
                 new MenuItem { Text = "Options",   OnSelect = () => { _inOptions = true; _form.Invalidate(); } },
                 new MenuItem { Text = "Quit Game", OnSelect = () => Application.Exit() },
