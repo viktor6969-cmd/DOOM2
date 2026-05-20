@@ -30,6 +30,7 @@ namespace DOOM
         {
             _inGame = true;
             _game.Start();      // start the game loop
+            Cursor.Hide();
             PlayMusic(_music_game);
             Invalidate();
         }
@@ -38,6 +39,7 @@ namespace DOOM
         public void GoToMenu()
         {
             _inGame = false;
+            Cursor.Show();
             _game.Stop();       // stop the game loop
             PlayMusic(_music_menu);
             Invalidate();
@@ -80,7 +82,10 @@ namespace DOOM
         // ── Mouse click — who's in charge handles ────────
         protected override void OnMouseClick(MouseEventArgs e)
         {
-                _menu.HandleMouseClick(e);
+            if (_inGame)
+                return;
+
+            _menu.HandleMouseClick(e);
         }
 
         // ── Restore menu music when form becomes visible ─

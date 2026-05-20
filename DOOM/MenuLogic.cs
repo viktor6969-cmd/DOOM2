@@ -7,9 +7,19 @@ using System.Windows.Forms;
 namespace DOOM
 {
     // ── MenuLogic ────────────────────────────────────────────────────────────
-    // Owns everything related to the menu: intro screen, menu items, skulls.
-    // Form1 calls Draw(), HandleKeys(), HandleMouseMove(), HandleMouseClick()
-    // and this class calls back form.GoToGame() or form.PlayMusic() as needed.
+    public class MenuItem
+    {
+        public string Text { get; private set; }
+        public Image Image { get; private set; }  // the menu item texture
+        public Action OnSelect { get; private set; }
+
+        public MenuItem(string text, string texturePath, Action onSelect)
+        {
+            Text = text;
+            Image = Image.FromFile(texturePath);
+            OnSelect = onSelect;
+        }
+    }
     public class MenuLogic
     {
         private Screen _form;
@@ -19,8 +29,8 @@ namespace DOOM
         private Font _menuFont;
 
         // Images
-        private Image _skull = Image.FromFile("Assets\\skull.png");
-        private Image _background = Image.FromFile("Assets\\BG.jpg");
+        private Image _skull = Image.FromFile("Assets\\MainMenu\\m_skull1.png");
+        private Image _background = Image.FromFile("Assets\\MainMenu\\titlepic.png");
 
         // Intro screen vars
         private bool _firstEnter = true;
@@ -30,11 +40,7 @@ namespace DOOM
         // Menu vars
         private int _selected = 0;
         private RectangleF[] _menuBounds = new RectangleF[4]; // To measure the text borders
-        private struct MenuItem
-        {
-            public string Text;
-            public Action OnSelect;
-        }
+        
         private MenuItem[] _menuItems;
 
         // Options state
@@ -57,15 +63,15 @@ namespace DOOM
             _blinkTimer.Start();
 
             _menuItems = new MenuItem[]
-            {
-                new MenuItem { Text = "Slay Demons",   OnSelect = () => {_form.GoToGame();}},
-                new MenuItem { Text = "Drawing Board", OnSelect = () => { RunDrawingBoard(_form);  } },
-                new MenuItem { Text = "Options",   OnSelect = () => { _inOptions = true; _form.Invalidate(); } },
-                new MenuItem { Text = "Quit Game", OnSelect = () => Application.Exit() },
-            };
+             {
+                new MenuItem("Slay Demons",    "Assets\\MainMenu\\m_newg.png",  () => _form.GoToGame()),
+                new MenuItem("Options",        "Assets\\MainMenu\\m_lgttl.png", () => _form.GoToGame()),
+                new MenuItem("Options",        "Assets\\MainMenu\\m_optttl.png", () => { _inOptions = true; _form.Invalidate(); }),
+                new MenuItem("Quit Game",      "Assets\\MainMenu\\m_endgam.png",  () => Application.Exit()),
+             };
 
             // Set the text font
-            _fonts.AddFontFile("Assets\\DooM.ttf");
+            _fonts.AddFontFile("Assets\\MainMenu\\DooM.ttf");
             _menuFont = new Font(_fonts.Families[0], 32, FontStyle.Regular);
         }
 
@@ -99,34 +105,43 @@ namespace DOOM
         // ── Main Menu ─────────────────────────────────────
         private void DrawMainMenu(Graphics g, Size clientSize)
         {
-            g.DrawImage(_background, 0, 0, clientSize.Width, clientSize.Height); // Draw the BG
+            g.DrawImage(_background, 0, 0, clientSize.Width, clientSize.Height);
 
             int startY = (clientSize.Height / 2) - 40;
 
             for (int i = 0; i < _menuItems.Length; i++)
             {
                 float y = startY + i * 60;
-                SizeF size = g.MeasureString(_menuItems[i].Text, _menuFont); // Measure the text itself
-                float x = (clientSize.Width - size.Width) / 2;
-                _menuBounds[i] = new RectangleF(x, y, size.Width, size.Height); // Saves the text border sizes (For mouse)
+                float x = (clientSize.Width / 2) - 200;
 
-                g.DrawString(_menuItems[i].Text, _menuFont, new SolidBrush(Color.FromArgb(20, 0, 0)), x + 6, y + 6);
-                g.DrawString(_menuItems[i].Text, _menuFont, new SolidBrush(Color.FromArgb(90, 0, 0)), x + 3, y + 3);
+                _menuBounds[i] = new RectangleF(x, y, 350, 50);
 
-                Color col = (i == _selected) ? Color.Red : Color.FromArgb(155, 15, 15);
-                g.DrawString(_menuItems[i].Text, _menuFont, new SolidBrush(col), x, y);
+                if (i == _selected)
+                    g.DrawImage(_menuItems[i].Image, x, y, 350, 50);
+                else
+                    DrawDimmed(g, _menuItems[i].Image, _menuBounds[i]);
             }
 
-            // Skulls
-            SizeF selectedSize = g.MeasureString(_menuItems[_selected].Text, _menuFont);
-            float textX = (clientSize.Width - selectedSize.Width) / 2;
-            float textY = startY + _selected * 60;
-
-            g.DrawImage(_skull, textX - 65, textY, 60, 60);
-            g.DrawImage(_skull, textX + selectedSize.Width + 5, textY, 60, 60);
+            // Skulls on selected item
+            g.DrawImage(_skull, _menuBounds[_selected].X - 70, _menuBounds[_selected].Y-2, 60, 60);
+            g.DrawImage(_skull, _menuBounds[_selected].Right + 10, _menuBounds[_selected].Y-2, 60, 60);
         }
 
-        // ── Options Screen ──────────────────────────────────
+        private void DrawDimmed(Graphics g, Image img, RectangleF bounds)
+        {
+            var cm = new System.Drawing.Imaging.ColorMatrix();
+            cm.Matrix00 = cm.Matrix11 = cm.Matrix22 = 0.4f; // 40% brightness
+
+            var attr = new System.Drawing.Imaging.ImageAttributes();
+            attr.SetColorMatrix(cm);
+
+            g.DrawImage(img,
+                Rectangle.Round(bounds),
+                0, 0, img.Width, img.Height,
+                GraphicsUnit.Pixel,
+                attr);
+        }
+
         // ── Options Screen ────────────────────────────────
         private void DrawOptions(Graphics g, Size clientSize)
         {

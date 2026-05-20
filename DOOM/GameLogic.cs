@@ -4,7 +4,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace DOOM
 {
@@ -22,32 +21,34 @@ namespace DOOM
     public abstract class Build : Entity
     {
         public override string TexturePath { get; protected set; }
-        public int Weight { get; protected set; }
-        public int Height { get; protected set; }
 
         protected Build(string name, int weight, int height, string texturePath)
             : base(name)
         {
-            Weight = weight;
-            Height = height;
             TexturePath = texturePath;
         }
     }
     public class Weapon : Entity
     {
         public override string TexturePath { get; protected set; }
-        public int Damage { get; protected set; }
+        public Image WeaponImage { get; protected set; }
+        public Image WeaponShooting {  get; protected set; }
+
+        public bool IsShooting { get; set; }
+
+
         public int MaxAmmo { get; protected set; }
         public int AmmoCount { get; protected set; }
 
-        
-
-        public Weapon(string name, int damage, int ammo, string texture)
+        public Weapon(string name, int ammo, string texturePath, string shootingTexturePath)
             : base(name)
         {
-            TexturePath = texture;
-            Damage = damage;
+            TexturePath = texturePath;
+            WeaponImage = Image.FromFile(TexturePath);
+            WeaponShooting = Image.FromFile(shootingTexturePath);
+            MaxAmmo = ammo;
             AmmoCount = ammo;
+            IsShooting = false;
         }
 
         public void Shoot()
@@ -55,15 +56,12 @@ namespace DOOM
             if (AmmoCount > 0)
             {
                 AmmoCount--;
-                Console.WriteLine("Bang! Ammo left: " + AmmoCount);
+                IsShooting = true;
             }
         }
-        public void Reload(){
-
-        }
-        public virtual string GetInfo()
+        public void Reload()
         {
-            return $"{Name} | Damage: {Damage} | Ammo: {AmmoCount}";
+            AmmoCount = MaxAmmo;
         }
     }
 
@@ -77,23 +75,36 @@ namespace DOOM
 
         // ── Texture ────────────────────────────────────
         public override string TexturePath { get; protected set; }
+
+        public List<Image> Faces { get; protected set; }
       
         // ── Weapon collection ─────────────────────────
         public List<Weapon> Weapons { get; private set; }
         public Weapon CurrentWeapon { get; private set; }
 
+        // -- Stats -------------------------------------
+        public int Health {  get; private set; }
+
         // ── Constructor ───────────────────────────────
-        public Player(float p_x, float p_y) : base("Player1")
+        public Player(float p_x, float p_y, int health) : base("Player1")
         {
             X = p_x;
             Y = p_y;
             Angle = 0;
-            TexturePath = "Original_assets\\Textures\\Weapons\\pisga0.png";
-            // Start with both weapons
+            Health = health;
+            TexturePath = "Assets\\Textures\\Other\\stfevl1.png";
+
+            // Add faces 
+            Faces = new List<Image> {
+                Image.FromFile(TexturePath),
+                Image.FromFile("Assets\\Textures\\Other\\stfkill0.png"),
+                Image.FromFile("Assets\\Textures\\Other\\stfdead0.png"),
+             };
+            //Add basic weapons 
             Weapons = new List<Weapon>
             {
-                new Weapon("Pistol", 10, 15, "Original_assets\\Textures\\Weapons\\pisga0.png"),
-                new Weapon("Shotgun", 25, 8, "Original_assets\\Textures\\Weapons\\shtga0.png"),
+                new Weapon("Pistol", 10, "Assets\\Textures\\Weapons\\pisga0.png","Assets\\Textures\\Weapons\\pisfa0.png"),
+                new Weapon("Shotgun", 25, "Assets\\Textures\\Weapons\\shtga0.png","Assets\\Textures\\Weapons\\pisfa0.png"),
             };
 
 
@@ -108,18 +119,21 @@ namespace DOOM
             Y += y;
         }
 
-        // ── Switch weapon by index ─────────────────────
-        public void SwitchWeapon(int index)
-        {
-            if (index >= 0 && index < Weapons.Count)
-                CurrentWeapon = Weapons[index];
-        }
-
         // ── Cycle to next weapon ───────────────────────
         public void NextWeapon()
         {
             int next = (Weapons.IndexOf(CurrentWeapon) + 1) % Weapons.Count;
             CurrentWeapon = Weapons[next];
+        }
+
+        // -- Get face expreasion ------------------------
+        public Image GetFace()
+        {
+            if(Health == 100)
+                return Faces[0];
+            if(Health >= 50)
+                return Faces[1];
+            return Faces[2];
         }
     }
     public class Wall : Build
@@ -156,6 +170,44 @@ namespace DOOM
         }
     }
 
+    public class SideBar : Entity
+    {
+        public override string TexturePath { get; protected set; }
+        public List<Image> SideBarTextures { get; protected set; }
+        public List<Image> Numbers { get; protected set; }
+        public int Health { get; protected set; }
+        public int AmmoCount { get; protected set; }
+        public SideBar(string name, int health, int ammo, string texturePath)
+            : base(name)
+        {
+            TexturePath = texturePath;
+
+            SideBarTextures = new List<Image> {
+
+                Image.FromFile(TexturePath),
+                Image.FromFile("Assets\\Textures\\Other\\info.png"),
+                Image.FromFile("Assets\\Textures\\Other\\SideArms.png"),
+            };
+            Numbers = new List<Image>
+            {
+                Image.FromFile("Assets\\Textures\\Numbers\\winum0.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\winum1.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\winum2.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\winum3.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\winum4.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\winum5.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\winum6.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\winum7.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\winum8.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\winum9.png"),
+                Image.FromFile("Assets\\Textures\\Numbers\\wipcnt.png"),
+            };
+
+            Health = health;
+            AmmoCount = ammo;
+        }
+    }
+
     public struct RayHit
     {
         public double Distance;
@@ -174,29 +226,36 @@ namespace DOOM
 
     public class Render
     {
-        public const int ScreenW = 640;
-        public const int ScreenH = 400;
+        public int ScreenW;
+        public int ScreenH;
 
 
         private int[] _pixels;
         private Wall _wall;
+        private Wall _floor;
+        private Wall _ceiling;
         private Bitmap _frame;
 
         private const double FOV = Math.PI / 3.0; // 60 deg, view
 
-        public Render()
+        public Render(Screen form)
         {
+            ScreenW = form.Width;
+            ScreenH = form.Height;
+
             _frame = new Bitmap(ScreenW, ScreenH, PixelFormat.Format32bppArgb);
             _pixels = new int[ScreenW * ScreenH];
 
-            // Load textures
-            _wall = new Wall("Original_assets\\Textures\\Walls\\sw19_1.png","Wall1");
-          
+            _wall = new Wall("Assets\\Textures\\Walls\\sw19_1.png","Wall1");
+            _floor = new Wall("Assets\\Textures\\Walls\\floor4_8.png", "Floor1");
+            _ceiling = new Wall("Assets\\Textures\\Walls\\ceil3_5.png", "Ceiling1");
         }
 
         public Bitmap DrawFrame(Player player, int[,] map)
         { 
             Array.Clear(_pixels, 0, _pixels.Length);
+
+            DrawFloorCeiling(player);
 
             for (int screenX = 0; screenX < ScreenW; screenX++)
             {
@@ -207,22 +266,16 @@ namespace DOOM
                 RayHit hit = CastRay(player.X, player.Y, rayAngle, map);
 
                 // ceiling + textured wall + floor
-                DrawColumn(screenX,hit,rayAngle,player.Angle);
+                DrawWalls(screenX,hit,rayAngle,player.Angle);
 
             }
-
-            DrawGun(player);
 
             CopyPixelsToBitmap();
             return _frame;
         }
 
-        private void DrawColumn(int screenX, RayHit hit, double rayAngle, double playerAngle)
+        private void DrawWalls(int screenX, RayHit hit, double rayAngle, double playerAngle)
         {
-            // Simple colors for ceiling and floor
-            int ceilingColor = Color.SlateGray.ToArgb();
-            int floorColor = Color.DarkGray.ToArgb();
-
             // Correct distance for fish-eye effect
             double distance = hit.Distance * Math.Cos(rayAngle - playerAngle);
             if (distance < 0.0001) distance = 0.0001;
@@ -243,10 +296,6 @@ namespace DOOM
             int texX = (int)(wallOffset * _wall.Width);
             texX = Math.Max(0, Math.Min(texX, _wall.Width - 1));
 
-            // Draw ceiling
-            for (int i = 0; i < wallStart; i++)
-                _pixels[i * ScreenW + screenX] = ceilingColor;
-
             // Draw wall
             for (int y = wallStart; y < wallEnd; y++)
             {
@@ -256,12 +305,43 @@ namespace DOOM
 
                 _pixels[y * ScreenW + screenX] = _wall.GetPixelColor(texX, texY);
             }
-
-            // Draw floor
-            for (int y = wallEnd; y < ScreenH; y++)
-                _pixels[y * ScreenW + screenX] = floorColor;
         }
 
+        private void DrawFloorCeiling(Player player)
+        {
+            double rayDirX0 = Math.Cos(player.Angle - FOV / 2);
+            double rayDirY0 = Math.Sin(player.Angle - FOV / 2);
+            double rayDirX1 = Math.Cos(player.Angle + FOV / 2);
+            double rayDirY1 = Math.Sin(player.Angle + FOV / 2);
+
+            for (int y = 0; y < ScreenH; y++)
+            {
+                bool isCeiling = y < ScreenH / 2;
+                int p = isCeiling ? (ScreenH / 2 - y) : (y - ScreenH / 2);
+                if (p == 0) continue; // avoid div by zero at exact center
+
+                double rowDist = (ScreenH / 2.0) / p;
+
+                double stepX = rowDist * (rayDirX1 - rayDirX0) / ScreenW;
+                double stepY = rowDist * (rayDirY1 - rayDirY0) / ScreenW;
+
+                double worldX = player.X + rowDist * rayDirX0;
+                double worldY = player.Y + rowDist * rayDirY0;
+
+                Wall flat = isCeiling ? _ceiling : _floor;
+
+                for (int x = 0; x < ScreenW; x++)
+                {
+                    int tx = (int)(Math.Abs(worldX - Math.Floor(worldX)) * flat.Width) % flat.Width;
+                    int ty = (int)(Math.Abs(worldY - Math.Floor(worldY)) * flat.Height) % flat.Height;
+
+                    _pixels[y * ScreenW + x] = flat.GetPixelColor(tx, ty);
+
+                    worldX += stepX;
+                    worldY += stepY;
+                }
+            }
+        }
 
         private RayHit CastRay(float px, float py, double angle, int[,] map)
         {
@@ -336,19 +416,6 @@ namespace DOOM
             _frame.UnlockBits(data);
         }
 
-        public void DrawGun(Player player)
-        {
-            Bitmap gunTexture = new Bitmap(player.CurrentWeapon.TexturePath);
-            int gunW = gunTexture.Width;
-            int gunH = gunTexture.Height;
-            int posX = (ScreenW - gunW) / 2;
-            int posY = ScreenH - gunH - 10;
-            using (Graphics g = Graphics.FromImage(_frame))
-            {
-                g.DrawImage(gunTexture, posX, posY, gunW, gunH);
-            }
-            gunTexture.Dispose();
-        }
     }
 
     public class GameLogic
@@ -365,31 +432,29 @@ namespace DOOM
         // ── Map ───────────────────────────────────────
         private int[,] _map =
         {
-        {1,1,1,1,1,1,1,1,1,1 },
-        {1,0,0,0,0,0,0,0,0,1 },
-        {1,0,0,0,0,0,0,0,0,1 },
-        {1,0,0,0,0,0,0,0,0,1 },
-        {1,0,0,0,0,0,0,0,0,1 },
-        {1,0,0,0,0,0,0,0,0,1 },
-        {1,1,1,1,1,1,1,1,1,1 }
-    };
-
-        public Image _weapon;
-
-        public void Draw(Graphics g, Size clientSize)
-        {
-            if (_player == null)
-                return;
-
-            Bitmap frame = _renderer.DrawFrame(_player, _map);
-
-            g.DrawImage(frame, 0, 0, clientSize.Width, clientSize.Height);
-            g.DrawImage()
-        }
-
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+            {1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,1},
+            {1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1},
+            {1,0,0,0,1,0,0,0,1,1,0,0,1,0,0,1},
+            {1,0,0,0,1,0,0,0,1,1,0,0,1,0,0,1},
+            {1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1},
+            {1,0,1,1,1,0,1,1,1,1,1,0,1,1,0,1},
+            {1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,1},
+            {1,0,1,0,0,0,0,0,0,0,1,0,0,1,0,1},
+            {1,0,1,0,0,1,1,1,1,0,0,0,0,1,0,1},
+            {1,0,0,0,0,1,0,0,1,0,1,1,0,0,0,1},
+            {1,0,1,1,0,1,0,0,1,0,1,0,0,1,0,1},
+            {1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1},
+            {1,0,0,0,1,1,1,0,0,1,1,1,0,0,0,1},
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+        };
 
         // ── Player ────────────────────────────────────
         private Player _player;
+
+        // -- SideBar -----------------------------------
+        private SideBar _sideBar;
 
         // ── Movement keys ─────────────────────────────
         private bool _keyW, _keyS, _keyA, _keyD;
@@ -398,12 +463,14 @@ namespace DOOM
         private const float MoveSpeed = 0.08f;
         private const float TurnSpeed = 0.04f;
 
+        // -- Gun ---------------------------------------
+        private int _shootTimer = 0;
+
         // ── Constructor ───────────────────────────────
         public GameLogic(Screen form)
         {
             _form = form;
-            _renderer = new Render();
-
+            _renderer = new Render(form);
             _gameLoop = new System.Windows.Forms.Timer();
             _gameLoop.Interval = 16;
             _gameLoop.Tick += (s, e) =>
@@ -413,12 +480,67 @@ namespace DOOM
             };
         }
 
+        // -- Draw graphics ----------------------------
+        public void Draw(Graphics g, Size clientSize)
+        {
+            if (_player == null)
+                return;
+            // Draw the main frame
+            Bitmap frame = _renderer.DrawFrame(_player, _map);
+            g.DrawImage(frame, 0, 0, clientSize.Width, clientSize.Height);
+
+            // Add the side bar
+            DrawSideBar(g,clientSize);
+        }
+
+        public void DrawSideBar(Graphics g, Size clientSize)
+        {
+        // Draw wepon
+            if(_player.CurrentWeapon.IsShooting)
+                g.DrawImage(_player.CurrentWeapon.WeaponShooting, (clientSize.Width / 2 - 60), (clientSize.Height / 2 + 30), 130, 150);
+            else
+                g.DrawImage(_player.CurrentWeapon.WeaponImage, (clientSize.Width / 2 - 70), (clientSize.Height / 2 + 70), 120, 140);
+
+            // Draw sideBar BG
+            g.DrawImage(_sideBar.SideBarTextures[0] , 0, clientSize.Height - 90, clientSize.Width, 90);
+
+            // Draw stats images
+            g.DrawImage(_sideBar.SideBarTextures[1], (clientSize.Width - 182), (clientSize.Height - 91), 145, 85); // Info image
+            g.DrawImage(_sideBar.SideBarTextures[2], (clientSize.Width / 2 - 150), (clientSize.Height - 90), 100, 85); // Side arm image
+
+            // Draw Health
+            DrawNumber(g, _player.Health, (clientSize.Width / 3 - 140), clientSize.Height - 75,30,40,true);
+            // Draw Ammo
+            DrawNumber(g,_player.CurrentWeapon.AmmoCount,30,clientSize.Height - 75,30,40,false);
+
+            // Draw Armor
+            DrawNumber(g,50, clientSize.Width/2 + 90, clientSize.Height - 75, 30, 40, true);
+
+            // Draw face 
+            g.DrawImage(_player.GetFace(), (clientSize.Width / 2 - 43), (clientSize.Height - 86), 90, 80);
+
+
+        }
+
+        private void DrawNumber(Graphics g, int value, int x, int y, int digitW, int digitH, bool proc)
+        {
+            int i;
+            string text = value.ToString();
+            for (i = 0; i < text.Length; i++)
+            {
+                int digit = text[i] - '0';
+                g.DrawImage( _sideBar.Numbers[digit],(x + i * digitW),y,digitW,digitH);
+            }
+            if (proc) 
+                g.DrawImage(_sideBar.Numbers[10], (x + i * digitW), y, digitW, digitH);
+        }
+
         // ── Start ─────────────────────────────────────
         public void Start()
         {
-            _player = new Player(5, 5); // fresh player
+            _player = new Player(5, 5, 100); // fresh player
+            _sideBar = new SideBar("sideBar", 100, _player.CurrentWeapon.AmmoCount, "Assets\\Textures\\Other\\stbar.png");
             _gameLoop.Start();
-            _form.Invalidate();
         }
 
         // ── Stop ──────────────────────────────────────
@@ -454,43 +576,20 @@ namespace DOOM
                 dx -= (float)Math.Cos(_player.Angle) * MoveSpeed;
                 dy -= (float)Math.Sin(_player.Angle) * MoveSpeed;
             }
+            if (dx != 0 || dy != 0)
+                TryMove(dx, dy);
 
-            TryMove(dx, dy);
-        }
-
-        public void HandleKeys(KeyEventArgs e)
-        {
-            if (_player == null)
-                return;
-
-            switch (e.KeyCode)
+            if (_player.CurrentWeapon.IsShooting)
             {
-                case Keys.W:
-                case Keys.Up:
-                    _keyW = true;
-                    break;
+                _shootTimer--;
 
-                case Keys.S:
-                case Keys.Down:
-                    _keyS = true;
-                    break;
-
-                case Keys.A:
-                case Keys.Left:
-                    _keyA = true;
-                    break;
-
-                case Keys.D:
-                case Keys.Right:
-                    _keyD = true;
-                    break;
-
-                case Keys.Q:
-                    _player.NextWeapon();
-                    break;
+                if (_shootTimer <= 0)
+                    _player.CurrentWeapon.IsShooting = false;
             }
         }
 
+
+        // -- Collision ---------------------------------
         private void TryMove(float dx, float dy)
         {
             float newX = _player.X + dx;
@@ -503,29 +602,44 @@ namespace DOOM
                 _player.Y = newY;
         }
 
+        // -- Keys handeling ----------------------------
+        public void HandleKeys(KeyEventArgs e)
+        {
+            if (_player == null)
+                return;
+
+            switch (e.KeyCode)
+            {
+                case Keys.W:     _keyW = true; break;
+
+                case Keys.S:     _keyS = true; break;
+
+                case Keys.A:     _keyA = true; break;
+
+                case Keys.D:     _keyD = true; break;
+
+                case Keys.Escape: _form.GoToMenu();                                break;
+
+                case Keys.Q:      _player.NextWeapon();                            break;
+                     
+                case Keys.R:      _player.CurrentWeapon.Reload();                  break;
+                
+                case Keys.Space:  _player.CurrentWeapon.Shoot(); _shootTimer = 10; break;
+
+                
+            }
+        }
         public void HandleKeyUp(KeyEventArgs e)
         {
             switch (e.KeyCode)
             {
-                case Keys.W:
-                case Keys.Up:
-                    _keyW = false;
-                    break;
+                case Keys.W: _keyW = false; break;
 
-                case Keys.S:
-                case Keys.Down:
-                    _keyS = false;
-                    break;
+                case Keys.S: _keyS = false; break;
 
-                case Keys.A:
-                case Keys.Left:
-                    _keyA = false;
-                    break;
+                case Keys.A: _keyA = false; break;
 
-                case Keys.D:
-                case Keys.Right:
-                    _keyD = false;
-                    break;
+                case Keys.D: _keyD = false; break;
             }
         }
     }
