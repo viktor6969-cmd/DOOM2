@@ -1,20 +1,17 @@
 ﻿using System;
 using System.Drawing;
-using System.Media;
 using System.Windows.Forms;
 
 namespace DOOM
 {
+    
     public partial class Screen : Form
     {
         private MenuLogic _menu;
         private GameLogic _game;
         private bool _inGame = false;
+    
 
-
-        private SoundPlayer _music = new SoundPlayer();
-        private string _music_menu = "Assets\\Music\\TheyScared.wav";
-        private string _music_game = "Assets\\Music\\in_game.wav";
         public Screen()
         {
             InitializeComponent();
@@ -29,9 +26,8 @@ namespace DOOM
         public void GoToGame()
         {
             _inGame = true;
-            _game.Start();      // start the game loop
+            _game.Start();
             Cursor.Hide();
-            PlayMusic(_music_game);
             Invalidate();
         }
 
@@ -41,23 +37,14 @@ namespace DOOM
             _inGame = false;
             Cursor.Show();
             _game.Stop();       // stop the game loop
-            PlayMusic(_music_menu);
             Invalidate();
-        }
-
-        // ── Shared: play music ───────────────────────────
-        public void PlayMusic(string path)
-        {
-            _music.Stop();
-            _music.SoundLocation = path;
-            _music.PlayLooping();
         }
 
         // ── Paint — who's in charge draws ────────────────
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-
+             
             if (_inGame)
                 _game.Draw(e.Graphics, ClientSize);
             else
@@ -72,14 +59,18 @@ namespace DOOM
             else
                 _menu.HandleKeys(e);
         }
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            if (_inGame)
+                _game.HandleKeyUp(e);
+        }
 
-        // ── Mouse move — who's in charge handles ─────────
+
+        // ── Mouse  — who's in charge handles ----─────────
         protected override void OnMouseMove(MouseEventArgs e)
         {
                 _menu.HandleMouseMove(e);
         }
-
-        // ── Mouse click — who's in charge handles ────────
         protected override void OnMouseClick(MouseEventArgs e)
         {
             if (_inGame)
@@ -88,19 +79,6 @@ namespace DOOM
             _menu.HandleMouseClick(e);
         }
 
-        // ── Restore menu music when form becomes visible ─
-        protected override void OnVisibleChanged(EventArgs e)
-        {
-            base.OnVisibleChanged(e);
-            if (this.Visible && !_inGame)
-                PlayMusic(_music_menu);
-        }
-
-        protected override void OnKeyUp(KeyEventArgs e)
-        {
-            if (_inGame)
-                _game.HandleKeyUp(e);
-        }
         private void Screen_Load(object sender, EventArgs e)
         {
 

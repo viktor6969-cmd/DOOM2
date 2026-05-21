@@ -1,9 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Drawing.Imaging;
+using System.Collections.Generic;
+using System.Runtime.Serialization;//!!
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;//!!
 
 namespace DOOM
 {
@@ -28,6 +31,7 @@ namespace DOOM
             TexturePath = texturePath;
         }
     }
+
     public class Weapon : Entity
     {
         public override string TexturePath { get; protected set; }
@@ -59,13 +63,16 @@ namespace DOOM
                 IsShooting = true;
             }
         }
+        public void SetAmmo(int ammo)
+        {
+            AmmoCount = ammo;
+        }
+
         public void Reload()
         {
             AmmoCount = MaxAmmo;
         }
     }
-
-
     public class Player : Entity
     {
         // ── Position ──────────────────────────────────
@@ -126,6 +133,18 @@ namespace DOOM
             CurrentWeapon = Weapons[next];
         }
 
+        public void SelectWeapon(string weaponName)
+        {
+            for (int i = 0; i < Weapons.Count; i++)
+            {
+                if (Weapons[i].Name == weaponName)
+                {
+                    CurrentWeapon = Weapons[i];
+                    return;
+                }
+            }
+        }
+
         // -- Get face expreasion ------------------------
         public Image GetFace()
         {
@@ -136,6 +155,7 @@ namespace DOOM
             return Faces[2];
         }
     }
+    
     public class Wall : Build
     {
         private int[] _pixels;
@@ -169,7 +189,6 @@ namespace DOOM
             return _pixels[y * Width + x];
         }
     }
-
     public class SideBar : Entity
     {
         public override string TexturePath { get; protected set; }
@@ -208,6 +227,29 @@ namespace DOOM
         }
     }
 
+
+    [Serializable]
+    public class GameInfo
+    {
+        public float PlayerX { get; set; }
+        public float PlayerY { get; set; }
+        public float PlayerAngle { get; set; }
+
+        public string CurrentWeaponName { get; set; }
+        public int CurrentWeaponAmmo { get; set; }
+
+        public GameInfo(float playerX, float playerY, float playerAngle, string weapon, int ammo) 
+        { 
+        
+            PlayerX = playerX;
+            PlayerY = playerY;
+            PlayerAngle = playerAngle;
+
+            CurrentWeaponName = weapon;
+            CurrentWeaponAmmo = ammo;
+        }
+    }
+
     public struct RayHit
     {
         public double Distance;
@@ -223,6 +265,7 @@ namespace DOOM
             HitVertical = hitVertical;
         }
     }
+
 
     public class Render
     {
@@ -588,7 +631,59 @@ namespace DOOM
             }
         }
 
+        // -- Save & Load --------------------------------
+        private void SaveGame()
+        {
+            GameInfo gameInfo = new GameInfo(
+                _player.X,
+                _player.Y,
+                _player.Angle,
+                _player.CurrentWeapon.Name,
+                _player.CurrentWeapon.AmmoCount
+            );
+            Cursor.Show();
+            SaveFileDialog saveFileDialog1 = new SaveFileDialog();
+            saveFileDialog1.InitialDirectory = Directory.GetCurrentDirectory();
+            saveFileDialog1.Filter = "save files (*.txt)|*.txt|All files (*.*)|*.*";
+            saveFileDialog1.FilterIndex = 1;
+            saveFileDialog1.RestoreDirectory = true;
+            saveFileDialog1.FileName = "doom_save.txt";
+            if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                IFormatter formatter = new BinaryFormatter();
 
+                using (Stream stream = new FileStream(saveFileDialog1.FileName, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    formatter.Serialize(stream, gameInfo);
+                }
+            }
+            Cursor.Hide();
+        }
+
+        private void LoadGame()
+        {
+            OpenFileDialog openFileDialog1 = new OpenFileDialog();
+            openFileDialog1.InitialDirectory = Directory.GetCurrentDirectory();
+            openFileDialog1.Filter = "save files (*.txt)|*.txt|All files (*.*)|*.*";
+            openFileDialog1.FilterIndex = 1;
+            openFileDialog1.RestoreDirectory = true;
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                IFormatter formatter = new BinaryFormatter();
+
+                using (Stream stream = new FileStream(openFileDialog1.FileName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    GameInfo gameInfo = (GameInfo)formatter.Deserialize(stream);
+
+                    _player = new Player(gameInfo.PlayerX, gameInfo.PlayerY, 100);
+                    _player.Angle = gameInfo.PlayerAngle;
+
+                    _player.SelectWeapon(gameInfo.CurrentWeaponName);
+                    _player.CurrentWeapon.SetAmmo(gameInfo.CurrentWeaponAmmo);
+                }
+            }
+            Cursor.Hide();
+        }
         // -- Collision ---------------------------------
         private void TryMove(float dx, float dy)
         {
@@ -610,20 +705,22 @@ namespace DOOM
 
             switch (e.KeyCode)
             {
-                case Keys.W:     _keyW = true; break;
+                case Keys.W:      _keyW = true; break;
 
-                case Keys.S:     _keyS = true; break;
+                case Keys.S:      _keyS = true; break;
 
-                case Keys.A:     _keyA = true; break;
+                case Keys.A:      _keyA = true; break;
 
-                case Keys.D:     _keyD = true; break;
+                case Keys.D:      _keyD = true; break;
 
                 case Keys.Escape: _form.GoToMenu();                                break;
 
                 case Keys.Q:      _player.NextWeapon();                            break;
                      
                 case Keys.R:      _player.CurrentWeapon.Reload();                  break;
-                
+
+                case Keys.F5: SaveGame();                                             break;
+
                 case Keys.Space:  _player.CurrentWeapon.Shoot(); _shootTimer = 10; break;
 
                 

@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Media;
 using System.Drawing;
 using System.Drawing.Text;
-using System.Media;
 using System.Windows.Forms;
 
 namespace DOOM
@@ -10,75 +10,110 @@ namespace DOOM
     public class MenuItem
     {
         public string Text { get; private set; }
+        public RectangleF Bounds { get; set; }
         public Image Image { get; private set; }  // the menu item texture
         public Action OnSelect { get; private set; }
-
-        public MenuItem(string text, string texturePath, Action onSelect)
+        public MenuItem(string text, string texturePath, Action onSelect,float x, float y)
         {
             Text = text;
             Image = Image.FromFile(texturePath);
             OnSelect = onSelect;
+            Bounds = new RectangleF(x, y, 350, 50);
         }
     }
+
+    public struct Song
+    {
+        public string Name { get; private set; }
+        public string Path { get; private set; }
+        public Song(string name, string path)
+        {
+            Name = name;
+            Path = path;
+        }
+    }
+
     public class MenuLogic
     {
-        private Screen _form;
+        private Screen _form; 
 
-        // Fonts
-        private PrivateFontCollection _fonts = new PrivateFontCollection();
-        private Font _menuFont;
 
         // Images
-        private Image _skull = Image.FromFile("Assets\\MainMenu\\m_skull1.png");
-        private Image _background = Image.FromFile("Assets\\MainMenu\\titlepic.png");
+        private Image _skull;
+        private Image _mainBackground;
+        private Image _introBackground;
+        private Image _doomLogo;
+        private Image _introStartButton;
 
         // Intro screen vars
-        private bool _firstEnter = true;
         private bool _blinkVisible = true;
         private System.Windows.Forms.Timer _blinkTimer;
-
+        
         // Menu vars
         private int _selected = 0;
-        private RectangleF[] _menuBounds = new RectangleF[4]; // To measure the text borders
-        
-        private MenuItem[] _menuItems;
+        private const int ItemW = 350;
+        private const int ItemH = 50;
+        private const int ItemGap = 60;
+        private MenuItem[] _mainMenuItems;
+        private MenuItem[] _optionsMenuItems;
 
         // Options state
         private bool _inOptions = false;
         private int _optionSelected = 0;
+
+        // Music 
+        private bool _musicOn = true;
+        private SoundPlayer _music;
+        private Song[] _songs;
 
         // ----------------- Constructor ------------------- //
         public MenuLogic(Screen form)
         {
             _form = form;
 
-            // Blink timer for "PRESS ANY KEY"
-            _blinkTimer = new System.Windows.Forms.Timer();
-            _blinkTimer.Interval = 500;
-            _blinkTimer.Tick += (s, e) =>
-            {
-                _blinkVisible = !_blinkVisible;
-                _form.Invalidate(); 
-            };
-            _blinkTimer.Start();
+            _skull            = Image.FromFile("Assets\\MainMenu\\m_skull1.png");
+            _mainBackground   = Image.FromFile("Assets\\MainMenu\\w94_1.png");
+            _introBackground  = Image.FromFile("Assets\\MainMenu\\titlepic.png");
+            _doomLogo         = Image.FromFile("Assets\\MainMenu\\m_doom.png");
+            _introStartButton = Image.FromFile("Assets\\MainMenu\\presstostart.png");
 
-            _menuItems = new MenuItem[]
-             {
-                new MenuItem("Slay Demons",    "Assets\\MainMenu\\m_newg.png",  () => _form.GoToGame()),
-                new MenuItem("Options",        "Assets\\MainMenu\\m_lgttl.png", () => _form.GoToGame()),
-                new MenuItem("Options",        "Assets\\MainMenu\\m_optttl.png", () => { _inOptions = true; _form.Invalidate(); }),
-                new MenuItem("Quit Game",      "Assets\\MainMenu\\m_endgam.png",  () => Application.Exit()),
+
+            float x = (form.ClientSize.Width / 2) - (350 / 2);
+            int startY = (form.ClientSize.Height / 2) - 40;
+            int itemGap = 60;
+            _mainMenuItems = new MenuItem[]{
+                new MenuItem("New Game",    "Assets\\MainMenu\\m_newg.png",  () => { PlayMusic(_songs[1].Path); _form.GoToGame(); }, x, startY),
+                new MenuItem("LoadGame",        "Assets\\MainMenu\\m_lgttl.png", () => _form.GoToGame(), x, startY + itemGap),
+                new MenuItem("Options",        "Assets\\MainMenu\\m_optttl.png", () => { _inOptions = true; _form.Invalidate(); }, x, startY + 2 * itemGap),
+                new MenuItem("Quit Game",      "Assets\\MainMenu\\m_endgam.png",  () => Application.Exit(), x, startY + 3 * itemGap),
              };
 
-            // Set the text font
-            _fonts.AddFontFile("Assets\\MainMenu\\DooM.ttf");
-            _menuFont = new Font(_fonts.Families[0], 32, FontStyle.Regular);
+            _optionsMenuItems = new MenuItem[]{
+                new MenuItem("Sound :  < ON >", "Assets\\MainMenu\\m_optttl.png", null, x, startY),
+                new MenuItem("Sound :  < OFF >", "Assets\\MainMenu\\m_optttl.png", null, x, startY + itemGap),
+                new MenuItem("Back",            "Assets\\MainMenu\\m_endgam.png", () => { _inOptions = false; _form.Invalidate(); }, x, startY + 2 * itemGap),
+            };
+
+            // Music
+            _music = new SoundPlayer();
+            _songs = new Song[]{
+                 new Song("Menu Music", "Assets\\Music\\TheyScared.wav"),
+                 new Song("Game Music", "Assets\\Music\\in_game.wav")
+            };
+
+            // Start intro blink loop
+            _blinkTimer = new System.Windows.Forms.Timer();
+            _blinkTimer.Interval = 500;
+            _blinkTimer.Tick += (s, e) => { _blinkVisible = !_blinkVisible; _form.Invalidate(); };
+            _blinkTimer.Start();
+
+            PlayMusic(_songs[0].Path);
         }
 
         // ── Draw — called by Form1.OnPaint ────────────────
         public void Draw(Graphics g, Size clientSize)
         {
-            if (_firstEnter) { DrawIntroScreen(g, clientSize); return;}
+            if (_blinkTimer != null && _blinkTimer.Enabled) { DrawIntroScreen(g, clientSize); return;}
 
             if (_inOptions) { DrawOptions(g, clientSize); return; }
 
@@ -88,145 +123,87 @@ namespace DOOM
         // ── Intro Screen ──────────────────────────────────
         private void DrawIntroScreen(Graphics g, Size clientSize)
         {
-            g.DrawImage(_background, 0, 0, clientSize.Width, clientSize.Height);
+            g.DrawImage(_introBackground, 0, 0, clientSize.Width, clientSize.Height);
 
             if (_blinkVisible)
             {
-                string text = "- PRESS ANY KEY -";
-                float y = (clientSize.Height - 200);
-                float x = (clientSize.Width / 12);
-
-                g.DrawString(text, _menuFont, new SolidBrush(Color.FromArgb(20, 0, 0)), x + 6, y + 6);
-                g.DrawString(text, _menuFont, new SolidBrush(Color.FromArgb(90, 0, 0)), x + 3, y + 3);
-                g.DrawString(text, _menuFont, Brushes.Red, x, y);
+                g.DrawImage(_introStartButton, (clientSize.Width - _introStartButton.Width) / 2, (clientSize.Height - _introStartButton.Height) - 100, _introStartButton.Width, _introStartButton.Height);
             }
         }
 
         // ── Main Menu ─────────────────────────────────────
         private void DrawMainMenu(Graphics g, Size clientSize)
         {
-            g.DrawImage(_background, 0, 0, clientSize.Width, clientSize.Height);
+            g.DrawImage(_mainBackground, 0, 0, clientSize.Width, clientSize.Height);
+            g.DrawImage(_doomLogo, 150 , 60,525, 200);
+            for (int i = 0; i < _mainMenuItems.Length; i++)
+                 g.DrawImage(_mainMenuItems[i].Image, _mainMenuItems[i].Bounds);
 
-            int startY = (clientSize.Height / 2) - 40;
 
-            for (int i = 0; i < _menuItems.Length; i++)
-            {
-                float y = startY + i * 60;
-                float x = (clientSize.Width / 2) - 200;
-
-                _menuBounds[i] = new RectangleF(x, y, 350, 50);
-
-                if (i == _selected)
-                    g.DrawImage(_menuItems[i].Image, x, y, 350, 50);
-                else
-                    DrawDimmed(g, _menuItems[i].Image, _menuBounds[i]);
-            }
-
-            // Skulls on selected item
-            g.DrawImage(_skull, _menuBounds[_selected].X - 70, _menuBounds[_selected].Y-2, 60, 60);
-            g.DrawImage(_skull, _menuBounds[_selected].Right + 10, _menuBounds[_selected].Y-2, 60, 60);
-        }
-
-        private void DrawDimmed(Graphics g, Image img, RectangleF bounds)
-        {
-            var cm = new System.Drawing.Imaging.ColorMatrix();
-            cm.Matrix00 = cm.Matrix11 = cm.Matrix22 = 0.4f; // 40% brightness
-
-            var attr = new System.Drawing.Imaging.ImageAttributes();
-            attr.SetColorMatrix(cm);
-
-            g.DrawImage(img,
-                Rectangle.Round(bounds),
-                0, 0, img.Width, img.Height,
-                GraphicsUnit.Pixel,
-                attr);
+            float selectedY = _mainMenuItems[_selected].Bounds.Y;
+            g.DrawImage(_skull, _mainMenuItems[_selected].Bounds.X - 80, selectedY - 2, 60, 60);
+            g.DrawImage(_skull, _mainMenuItems[_selected].Bounds.X + _mainMenuItems[_selected].Bounds.Width + 20, selectedY - 2, 60, 60);
+            PlayMusic(_songs[0].Path);
         }
 
         // ── Options Screen ────────────────────────────────
         private void DrawOptions(Graphics g, Size clientSize)
         {
-            g.DrawImage(_background, 0, 0, clientSize.Width, clientSize.Height); // Draw the BG
-
-            // Big title
-            string title = "- Options -";
-            SizeF titleSize = g.MeasureString(title, _menuFont);
-            float titleX = (clientSize.Width - titleSize.Width) / 2;
-            float titleY = (clientSize.Height / 2) - 160;
-
-            g.DrawString(title, _menuFont, new SolidBrush(Color.FromArgb(20, 0, 0)), titleX + 6, titleY + 6);
-            g.DrawString(title, _menuFont, new SolidBrush(Color.FromArgb(90, 0, 0)), titleX + 3, titleY + 3);
-            g.DrawString(title, _menuFont, Brushes.Red, titleX, titleY);
-
-            // Option items
-            string[] items = { "Sound :  < ON >", "Back" };
-
-            int startY = clientSize.Height / 2 - 40;
-
-            for (int i = 0; i < items.Length; i++)
-            {
-                float y = startY + i * 60;
-                SizeF size = g.MeasureString(items[i], _menuFont);
-                float x = (clientSize.Width - size.Width) / 2;
-
-                g.DrawString(items[i], _menuFont, new SolidBrush(Color.FromArgb(20, 0, 0)), x + 6, y + 6);
-                g.DrawString(items[i], _menuFont, new SolidBrush(Color.FromArgb(90, 0, 0)), x + 3, y + 3);
-
-                Color col = (i == _optionSelected) ? Color.Red : Color.FromArgb(155, 15, 15);
-                g.DrawString(items[i], _menuFont, new SolidBrush(col), x, y);
-            }
+            
         }
 
-        // -- Run the DrawingBoard form -------
-        private void RunDrawingBoard(Screen from)
+        // ── PlayMusic ------------------------------───────
+        public void PlayMusic(string path)
         {
-            var drawForm = new DrawForm(_form);
-            drawForm.StartPosition = FormStartPosition.Manual;
-            drawForm.Location = _form.Location;
-            _form.PlayMusic("Assets\\Music\\in_game.wav");
-            drawForm.Show();
-            _form.Hide();
+            if (!_musicOn) return;
+            if(_music.SoundLocation == path) return;
+
+            _music.Stop();
+            _music.SoundLocation = path;
+            _music.PlayLooping();
+            
         }
+
         // ── HandleKeys — called by Form1.OnKeyDown ────────
         public void HandleKeys(KeyEventArgs e)
         {
-            // Exit the intro screen on any key press
-            if (_firstEnter)
+            // Exit intro screen on any key press
+            if (_blinkTimer != null && _blinkTimer.Enabled)
             {
-                _firstEnter = false;
                 _blinkTimer.Stop();
                 _blinkTimer.Dispose();
+                _blinkTimer = null;
                 _form.Invalidate();
                 return;
             }
 
-            // ── Options screen input ───────────────────────
+            // ── Options screen ────────────────────────────
             if (_inOptions)
             {
-                if (e.KeyCode == Keys.Up || e.KeyCode == Keys.W)
-                    _optionSelected = (_optionSelected - 1 + 2) % 2;
+                switch (e.KeyCode)
+                {
+                    case Keys.W:      _optionSelected = (_optionSelected - 1 + _optionsMenuItems.Length) % _optionsMenuItems.Length; break;
 
-                if (e.KeyCode == Keys.Down || e.KeyCode == Keys.S)
-                    _optionSelected = (_optionSelected + 1) % 2;
+                    case Keys.S:      _optionSelected = (_optionSelected + 1) % _optionsMenuItems.Length;                            break;
+                            
+                    case Keys.Space:  _optionsMenuItems[_optionSelected].OnSelect.Invoke();                                          break;
 
-                if (e.KeyCode == Keys.Escape)
-                    _inOptions = false;
+                    case Keys.Escape: _inOptions = false;                                                                            break;
 
-                // Enter/Space on "Back" closes options
-                if ((e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space) && _optionSelected == 1)
-                    _inOptions = false;
-
+                }
                 _form.Invalidate();
-                return; // ← stop here, don't fall into menu logic
+                return;
             }
 
-            if (e.KeyCode == Keys.Up || e.KeyCode == Keys.W)
-                _selected = (_selected - 1 + _menuItems.Length) % _menuItems.Length;
+            // ── Main menu ─────────────────────────────────
+            switch (e.KeyCode)
+            {
+                case Keys.W:     _selected = (_selected - 1 + _mainMenuItems.Length) % _mainMenuItems.Length; break;
 
-            if (e.KeyCode == Keys.Down || e.KeyCode == Keys.S)
-                _selected = (_selected + 1) % _menuItems.Length;
+                case Keys.S:     _selected = (_selected + 1) % _mainMenuItems.Length;                         break;
 
-            if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space)
-                _menuItems[_selected].OnSelect?.Invoke();
+                case Keys.Space: _mainMenuItems[_selected].OnSelect.Invoke();                                 break;
+            }
 
             _form.Invalidate();
         }
@@ -234,11 +211,11 @@ namespace DOOM
         // ── HandleMouseMove — called by Form1.OnMouseMove ─
         public void HandleMouseMove(MouseEventArgs e)
         {
-            for (int i = 0; i < _menuBounds.Length; i++)
+            for (int i = 0; i < _mainMenuItems.Length; i++)
             {
-                if (_menuBounds[i].Contains(e.X, e.Y))
+                if (_mainMenuItems[i].Bounds.Contains(e.X, e.Y))
                 {
-                    if (_selected != i) // only redraw if selection changed
+                    if (_selected != i) 
                     {
                         _selected = i;
                         _form.Invalidate();
@@ -251,14 +228,14 @@ namespace DOOM
         // ── HandleMouseClick — called by Form1.OnMouseClick
         public void HandleMouseClick(MouseEventArgs e)
         {
-            if (_firstEnter) return; // Don't process clicks on intro screen
+            if(_blinkTimer != null && _blinkTimer.Enabled) return;
 
 
-            for (int i = 0; i < _menuBounds.Length; i++)
+            for (int i = 0; i < _mainMenuItems.Length; i++)
             {
-                if (_menuBounds[i].Contains(e.X, e.Y))
+                if (_mainMenuItems[i].Bounds.Contains(e.X, e.Y))
                 {
-                    _menuItems[i].OnSelect?.Invoke();
+                    _mainMenuItems[i].OnSelect.Invoke();
                     break;
                 }
             }
