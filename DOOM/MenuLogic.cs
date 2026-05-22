@@ -112,7 +112,7 @@ namespace DOOM
             _blinkTimer.Tick += (s, e) => { _blinkVisible = !_blinkVisible; _form.Invalidate(); };
             _blinkTimer.Start();
 
-            PlayMusic(0);
+            PlayMusic(0); 
         }
 
         // ── Draw — called by Form1.OnPaint ────────────────
