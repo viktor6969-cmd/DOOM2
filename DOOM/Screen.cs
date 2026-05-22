@@ -10,7 +10,7 @@ namespace DOOM
         private MenuLogic _menu;
         private GameLogic _game;
         private bool _inGame = false;
-    
+        private bool _gameOver = false;
 
         public Screen()
         {
@@ -27,37 +27,51 @@ namespace DOOM
         {
             _inGame = true;
             _game.Start();
+            _menu.PlayMusic(1);
             Cursor.Hide();
             Invalidate();
         }
-
-        // ── Switch to Menu ───────────────────────────────
         public void GoToMenu()
         {
             _inGame = false;
             Cursor.Show();
+            _menu.PlayMusic(0);
             _game.Stop();       // stop the game loop
             Invalidate();
         }
+        public void GoToGameOver()
+        {
+            _inGame = false;
+            _gameOver = true;
+            _game.Stop();
+            Cursor.Show();
+            Invalidate();
+        }
+
+        public void LoadGame()
+        {
+            _game.LoadGame();
+        }
+     
 
         // ── Paint — who's in charge draws ────────────────
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
              
-            if (_inGame)
-                _game.Draw(e.Graphics, ClientSize);
-            else
-                _menu.Draw(e.Graphics, ClientSize);
+            if (_inGame)  _game.Draw(e.Graphics, ClientSize);
+
+            else if (_gameOver) _menu.DrawGameOver(e.Graphics, ClientSize);
+
+            else  _menu.Draw(e.Graphics, ClientSize);
         }
 
         // ── Keys — who's in charge handles ───────────────
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            if (_inGame)
-                _game.HandleKeys(e);
-            else
-                _menu.HandleKeys(e);
+            if (_gameOver) { _gameOver = false; Invalidate(); _menu.PlayMusic(0); return; }
+            if (_inGame) _game.HandleKeys(e);
+            else _menu.HandleKeys(e);
         }
         protected override void OnKeyUp(KeyEventArgs e)
         {

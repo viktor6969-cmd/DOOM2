@@ -1,16 +1,17 @@
 ﻿using System;
-using System.IO;
-using System.Drawing;
-using System.Windows.Forms;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
-using System.Runtime.Serialization;//!!
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization;//!!
 using System.Runtime.Serialization.Formatters.Binary;//!!
+using System.Windows.Forms;
 
 namespace DOOM
 {
 
+    // --- Abstract classes -------------------------
     public abstract class Entity
     {
         public string Name { get; protected set; } // Anyone can read and get, only sons can set 
@@ -32,6 +33,7 @@ namespace DOOM
         }
     }
 
+    // -- Child classes -----------------------------
     public class Weapon : Entity
     {
         public override string TexturePath { get; protected set; }
@@ -105,6 +107,8 @@ namespace DOOM
             Faces = new List<Image> {
                 Image.FromFile(TexturePath),
                 Image.FromFile("Assets\\Textures\\Other\\stfkill0.png"),
+                Image.FromFile("Assets\\Textures\\Other\\stfouch3.png"),
+                Image.FromFile("Assets\\Textures\\Other\\stfkill4.png"),
                 Image.FromFile("Assets\\Textures\\Other\\stfdead0.png"),
              };
             //Add basic weapons 
@@ -119,11 +123,27 @@ namespace DOOM
             CurrentWeapon = Weapons[0];
         }
 
-        // -- Move player to x,y -------------------------
-        public void MovePlayer(float x, float y)
+        // -- Health -----------------------------------
+        public void Hit()
         {
-            X += x;
-            Y += y;
+            Health = Math.Max(0,Health - 20);
+        }
+        public bool IsDead()
+        {
+            return Health == 0;
+        }
+        public Image GetFace()
+        {
+            if (Health == 100) return Faces[0];
+            if (Health == 80)  return Faces[1];
+            if (Health == 60)  return Faces[2];
+            if (Health == 40)  return Faces[3];
+
+            return Faces[4];
+        }
+        public void SetHealth(int health)
+        {
+            Health = health;
         }
 
         // ── Cycle to next weapon ───────────────────────
@@ -132,7 +152,6 @@ namespace DOOM
             int next = (Weapons.IndexOf(CurrentWeapon) + 1) % Weapons.Count;
             CurrentWeapon = Weapons[next];
         }
-
         public void SelectWeapon(string weaponName)
         {
             for (int i = 0; i < Weapons.Count; i++)
@@ -145,17 +164,7 @@ namespace DOOM
             }
         }
 
-        // -- Get face expreasion ------------------------
-        public Image GetFace()
-        {
-            if(Health == 100)
-                return Faces[0];
-            if(Health >= 50)
-                return Faces[1];
-            return Faces[2];
-        }
     }
-    
     public class Wall : Build
     {
         private int[] _pixels;
@@ -227,29 +236,32 @@ namespace DOOM
         }
     }
 
-
+    // -- Serialized !!D7 ---------------------------
     [Serializable]
     public class GameInfo
     {
         public float PlayerX { get; set; }
         public float PlayerY { get; set; }
+
+        public int PlayerHealth { get; set; }
         public float PlayerAngle { get; set; }
 
         public string CurrentWeaponName { get; set; }
         public int CurrentWeaponAmmo { get; set; }
 
-        public GameInfo(float playerX, float playerY, float playerAngle, string weapon, int ammo) 
+        public GameInfo(float playerX, float playerY, float playerAngle, string weapon, int ammo,int health) 
         { 
         
             PlayerX = playerX;
             PlayerY = playerY;
             PlayerAngle = playerAngle;
-
+            PlayerHealth = health;
             CurrentWeaponName = weapon;
             CurrentWeaponAmmo = ammo;
         }
     }
 
+    // -- Structs -----------------------------------
     public struct RayHit
     {
         public double Distance;
@@ -267,6 +279,7 @@ namespace DOOM
     }
 
 
+    // -- Graphical render --------------------------
     public class Render
     {
         public int ScreenW;
@@ -461,6 +474,7 @@ namespace DOOM
 
     }
 
+    // -- Mainlogic ---------------------------------
     public class GameLogic
     {
 
@@ -468,9 +482,6 @@ namespace DOOM
         private Screen _form;
         private System.Windows.Forms.Timer _gameLoop;
         private Render _renderer;
-
-        // ── Save path ─────────────────────────────────
-        private const string _savePath = "save.json";
 
         // ── Map ───────────────────────────────────────
         private int[,] _map =
@@ -596,14 +607,11 @@ namespace DOOM
         // ── Update ────────────────────────────────────
         private void Update()
         {
-            if (_player == null)
-                return;
+            if (_player == null)  return;
+            if (_player.IsDead()) { _form.GoToGameOver(); return; }
 
-            if (_keyA)
-                _player.Angle -= TurnSpeed;
-
-            if (_keyD)
-                _player.Angle += TurnSpeed;
+            if (_keyA) _player.Angle -= TurnSpeed;
+            if (_keyD) _player.Angle += TurnSpeed;
 
             float dx = 0;
             float dy = 0;
@@ -639,7 +647,8 @@ namespace DOOM
                 _player.Y,
                 _player.Angle,
                 _player.CurrentWeapon.Name,
-                _player.CurrentWeapon.AmmoCount
+                _player.CurrentWeapon.AmmoCount,
+                _player.Health
             );
             Cursor.Show();
             SaveFileDialog saveFileDialog1 = new SaveFileDialog();
@@ -660,26 +669,27 @@ namespace DOOM
             Cursor.Hide();
         }
 
-        private void LoadGame()
+        // Change private to public:
+        public void LoadGame()
         {
+            Cursor.Show();
             OpenFileDialog openFileDialog1 = new OpenFileDialog();
             openFileDialog1.InitialDirectory = Directory.GetCurrentDirectory();
             openFileDialog1.Filter = "save files (*.txt)|*.txt|All files (*.*)|*.*";
             openFileDialog1.FilterIndex = 1;
             openFileDialog1.RestoreDirectory = true;
+
             if (openFileDialog1.ShowDialog() == DialogResult.OK)
             {
                 IFormatter formatter = new BinaryFormatter();
-
                 using (Stream stream = new FileStream(openFileDialog1.FileName, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     GameInfo gameInfo = (GameInfo)formatter.Deserialize(stream);
-
                     _player = new Player(gameInfo.PlayerX, gameInfo.PlayerY, 100);
                     _player.Angle = gameInfo.PlayerAngle;
-
                     _player.SelectWeapon(gameInfo.CurrentWeaponName);
                     _player.CurrentWeapon.SetAmmo(gameInfo.CurrentWeaponAmmo);
+                    _player.SetHealth(gameInfo.PlayerHealth);
                 }
             }
             Cursor.Hide();
@@ -700,8 +710,8 @@ namespace DOOM
         // -- Keys handeling ----------------------------
         public void HandleKeys(KeyEventArgs e)
         {
-            if (_player == null)
-                return;
+            if (_player == null) return;
+
 
             switch (e.KeyCode)
             {
@@ -713,13 +723,15 @@ namespace DOOM
 
                 case Keys.D:      _keyD = true; break;
 
+                case Keys.F5:     SaveGame();                                      break;
+
+                case Keys.H:      _player.Hit();                                   break;
+
                 case Keys.Escape: _form.GoToMenu();                                break;
 
                 case Keys.Q:      _player.NextWeapon();                            break;
                      
                 case Keys.R:      _player.CurrentWeapon.Reload();                  break;
-
-                case Keys.F5: SaveGame();                                             break;
 
                 case Keys.Space:  _player.CurrentWeapon.Shoot(); _shootTimer = 10; break;
 
