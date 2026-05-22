@@ -1,12 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Runtime.Serialization;//!!
-using System.Runtime.Serialization.Formatters.Binary;//!!
+using System.Drawing;
 using System.Windows.Forms;
+using System.Drawing.Imaging;
+using System.Collections.Generic;
+using System.Runtime.Serialization;//!! 
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;//!!
 
 namespace DOOM
 {
@@ -165,7 +165,7 @@ namespace DOOM
         }
 
     }
-    public class Wall : Build
+    public class Wall : Build // D7 !! 
     {
         private int[] _pixels;
 

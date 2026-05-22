@@ -7,22 +7,24 @@ namespace DOOM
     
     public partial class Screen : Form
     {
-        private MenuLogic _menu;
-        private GameLogic _game;
+        private MenuLogic _menu; // MenuLogic.cs
+        private GameLogic _game; // GameLogic.cs
         private bool _inGame = false;
         private bool _gameOver = false;
 
+        // -----------------Constructor ----------------------//
         public Screen()
         {
             InitializeComponent();
             this.KeyPreview = true;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
-            this.DoubleBuffered = true;
+            this.DoubleBuffered = true; // To avoid laggs 
 
-            _menu = new MenuLogic(this);
+            _menu = new MenuLogic(this); 
             _game = new GameLogic(this);
         }
 
+        // --- Screen navigateion 
         public void GoToGame()
         {
             _inGame = true;
@@ -54,7 +56,7 @@ namespace DOOM
         }
      
 
-        // ── Paint — who's in charge draws ────────────────
+        // --- Paint — who's in charge draws ---------------//
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
@@ -66,7 +68,8 @@ namespace DOOM
             else  _menu.Draw(e.Graphics, ClientSize);
         }
 
-        // ── Keys — who's in charge handles ───────────────
+
+        // --- Keys — who's in charge handles --------------//
         protected override void OnKeyDown(KeyEventArgs e)
         {
             if (_gameOver) { _gameOver = false; Invalidate(); _menu.PlayMusic(0); return; }
@@ -80,7 +83,7 @@ namespace DOOM
         }
 
 
-        // ── Mouse  — who's in charge handles ----─────────
+        // --- Mouse  — who's in charge handles ------------//
         protected override void OnMouseMove(MouseEventArgs e)
         {
                 _menu.HandleMouseMove(e);
