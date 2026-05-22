@@ -33,7 +33,7 @@ namespace DOOM
             Name = name;
             Path = path;
         }
-    }
+    } 
 
     // --- Logic ------------------------------------------
     public class MenuLogic
